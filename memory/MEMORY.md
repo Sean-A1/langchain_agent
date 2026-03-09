@@ -1,62 +1,200 @@
-# Project Memory: langchain-pdf-rag
+# MEMORY.md
 
-## Purpose
-Python + LangChain PDF RAG pipeline. LlamaParse (primary) + PyPDFLoader (fallback) → Chroma → OpenAI.
+## Project overview
 
-## Key paths
-- Entry point: `main.py` (project root)
-- CLI: `src/app/cli.py` (typer, commands: ingest / query)
-- Config: `src/rag/config.py` (all env-var knobs)
-- Loader: `src/rag/loaders.py` (LlamaParse → PyPDFLoader fallback)
-- Ingest: `src/rag/ingest.py`
-- Query: `src/rag/query.py`
-- Utils: `src/rag/utils.py` (truncate_text, limit_chunks, format_chunks_for_display)
-- PDFs: `data/pdf/` (10 Korean RFP sample PDFs already present)
-- Index: `data/index/` (gitignored, Chroma persist dir)
+This repository is a LangChain-based local development project running inside WSL.
+The main goal is to build and maintain a RAG-oriented CLI/application workflow while using multiple coding agents safely and consistently.
 
-## Cost-control defaults
-MAX_TOKENS=256, TEMPERATURE=0.1, TOP_K=4, MAX_CONTEXT_CHUNKS=4, MAX_CHUNK_CHARS=1200, MAX_QUERY_CHARS=500
+This repo is developed primarily in WSL, with Cursor connected through WSL Remote.
+Coding agents are used from inside WSL and operate on isolated git branches.
 
-## Dependencies (key)
-- langchain=^0.3.0, langchain-community=^0.3.0, langchain-openai>=0.2.0,<0.4.0
-- langchain-chroma=^0.1.0 (added), chromadb=^0.5.0
-- sentence-transformers=^3.0.0 (local embeddings, all-MiniLM-L6-v2)
-- llama-parse=^0.5.0, pypdf>=4.2.0
-- typer=^0.12.0, rich=^13.0.0, tqdm=^4.66.0
+## Repository structure
 
-## Env vars
-- LLAMAPARSE_API_KEY (preferred) or LLAMA_CLOUD_API_KEY (fallback)
-- OPENAI_API_KEY (optional; absent → chunks-only mode)
+Key paths:
 
-## Confirmed working (2026-03-04)
-- ingest: 10 PDFs → 30 pages → 69 chunks, Chroma persisted ✓
-- query: LLM answer returned ✓ (Korean garbling is terminal encoding, not a bug)
-- LlamaParse auth failed → silently returns [] → fallback to PyPDFLoader ✓
+- `main.py`
+  - top-level entrypoint candidate
+- `src/app/cli.py`
+  - CLI entrypoint
+- `src/rag/`
+  - RAG-related modules
+  - `config.py`
+  - `ingest.py`
+  - `loaders.py`
+  - `prompts.py`
+  - `query.py`
+  - `utils.py`
+- `tests/test_smoke.py`
+  - minimum smoke test
+- `.env`
+  - local runtime environment variables
+- `.env.example`
+  - environment variable template
+- `memory/`
+  - persistent project memory and workflow docs
 
-## Known fixes applied
-1. typer `"--reset/--no-reset"` → `is_flag=True` (typer 0.12→0.15 compatibility)
-2. Typer upgraded: `^0.12.0` → `^0.15.0` (click 8.3 incompatibility)
-3. `opentelemetry-exporter-otlp-proto-grpc` force-upgraded 1.11.1→1.39.1 via pip (protobuf 7.x compatibility; chromadb 0.5.23 pins old version)
-4. `Chroma.from_documents()` → `Chroma() + db.add_documents()` (empty-batch error)
-5. LlamaParse fallback: check empty result (not just exception) → call PyPDFLoader
-6. `ANONYMIZED_TELEMETRY=False` in config.py (suppress harmless chromadb warnings)
-7. Chroma import: `langchain_community.vectorstores` → `langchain_chroma`
+## Core operating principles
 
-## Post-install manual step needed
-After `poetry install`, must run:
-```
-poetry run pip install "opentelemetry-exporter-otlp-proto-grpc>=1.39.0" "opentelemetry-proto>=1.39.0" --upgrade
-```
-(chromadb 0.5.23 pins 1.11.1 which is incompatible with protobuf 7.x)
+### 1. WSL-first development
 
-## Run commands
-```powershell
-poetry install
-poetry shell
-python main.py ingest --reset
-python main.py query "질문"
-poetry run pytest tests/ -v
-```
+All CLI agent work is expected to run inside WSL.
 
-## pytest config
-pyproject.toml has `[tool.pytest.ini_options] pythonpath = ["."]` so `src.*` imports work.
+Typical working directory:
+`~/projects/langchain_agent`
+
+### 2. Agent branch isolation
+
+Each coding agent must work on its own branch namespace.
+
+Examples:
+
+- `claude/<task-name>`
+- `codex/<task-name>`
+- `gemini/<task-name>`
+
+No agent should work directly on `main`.
+
+### 3. Subscription mode for coding agents
+
+Coding agents are expected to run using their own subscription/login-based CLI mode where applicable.
+
+The default policy is:
+
+- CLI coding agents do **not** use API keys for normal coding tasks
+- CLI coding agents do **not** rely on project `.env` authentication for their own agent login
+- CLI coding agents are used as coding assistants, not as API clients inside this repo
+
+### 4. API usage separation
+
+OpenAI API usage is reserved for application/runtime tasks such as:
+
+- RAG chains
+- eval workflows
+- code paths that explicitly require API access
+- document/query pipelines that are part of the app itself
+
+To make this separation explicit, the OpenAI API variable is intentionally named:
+
+`RAG_OPENAI_API_KEY`
+
+This variable exists to support repo/application logic, not agent CLI login.
+
+### 5. No API mode mixing
+
+Avoid mixing these two modes:
+
+- agent CLI subscription mode
+- repo/application API mode
+
+That means:
+
+- do not casually export `OPENAI_API_KEY` for agent CLI usage
+- do not rename `RAG_OPENAI_API_KEY` back to `OPENAI_API_KEY` without an explicit reason
+- do not blur the distinction between "tooling authentication" and "application runtime authentication"
+
+### 6. Minimal and targeted edits
+
+Agents should prefer small, focused edits.
+Avoid broad refactors unless the task explicitly requires them.
+
+### 7. Protect local secrets
+
+Never commit secrets.
+Be careful with:
+
+- `.env`
+- shell profile files
+- tokens or login artifacts
+- copied terminal outputs containing credentials
+
+## Current status
+
+As of the latest update:
+
+Completed:
+
+1. WSL setup, Node/npm install
+2. Git setup
+3. Repo clone into WSL home
+4. Per-agent branch separation
+5. Cursor WSL Remote setup mostly prepared
+6. API mode separation policy defined
+7. `RAG_OPENAI_API_KEY` policy applied in code/docs
+8. Claude Code CLI setup completed and tested on small tasks
+
+In progress / planned:
+9. Codex CLI setup in WSL
+10. Gemini CLI setup in WSL
+
+## Claude status
+
+Claude Code CLI has already been set up and tested with a few practical tasks such as scaffolding-related work and fixing deprecated warnings.
+Claude branch separation is already in use.
+
+## Codex and Gemini target state
+
+Codex CLI and Gemini CLI should follow the same high-level principles as Claude:
+
+- install in WSL
+- use subscription/login mode where applicable
+- avoid using project API keys for agent login
+- follow isolated branch workflow
+- optionally read agent-specific memory docs before work
+
+## Editing rules for all agents
+
+Before making changes, understand the local context first.
+
+Preferred order:
+
+1. inspect repo status
+2. inspect current branch
+3. move to `main`
+4. pull latest changes
+5. create a fresh agent branch
+6. inspect relevant files
+7. make minimal changes
+8. run the smallest relevant validation
+9. review diff before commit
+
+## Validation guidance
+
+Prefer the smallest relevant validation first.
+
+Examples:
+
+- smoke tests
+- targeted test file
+- CLI help/output check
+- import check
+- minimal run path verification
+
+Do not introduce unrelated changes just because they look improvable.
+
+## What to preserve
+
+The following must be preserved unless explicitly changed by the user:
+
+- WSL-first workflow
+- agent-specific branch isolation
+- subscription-mode preference for coding agents
+- `RAG_OPENAI_API_KEY` naming and separation intent
+- minimal-change philosophy
+- no direct work on `main`
+
+## If context is unclear
+
+When starting work, agents should consult:
+
+- `memory/MEMORY.md`
+- `memory/WORKFLOW.md`
+- their own agent-specific memory file
+
+## Notes
+
+This file is the shared long-term project memory.
+Agent-specific behavior should be placed in separate files:
+
+- `memory/CLAUDE.md`
+- `memory/CODEX.md`
+- `memory/GEMINI.md`
