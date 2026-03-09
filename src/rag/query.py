@@ -7,7 +7,7 @@ Cost-control measures applied at every call:
   - Each chunk is truncated to MAX_CHUNK_CHARS characters.
   - LLM is called with max_tokens=MAX_TOKENS, temperature=TEMPERATURE.
 
-If OPENAI_API_KEY is absent, the pipeline skips the LLM and prints the
+If RAG_OPENAI_API_KEY is absent, the pipeline skips the LLM and prints the
 retrieved chunks directly (useful for testing without spending tokens).
 """
 from __future__ import annotations
@@ -81,13 +81,13 @@ def run_query(
     )
 
     # ====================================================================
-    # No-LLM mode  (OPENAI_API_KEY not set)
+    # No-LLM mode  (RAG_OPENAI_API_KEY not set)
     # ====================================================================
-    if not config.OPENAI_API_KEY:
+    if not config.RAG_OPENAI_API_KEY:
         console.print(
             Panel(
-                "[yellow]OPENAI_API_KEY not set – showing retrieved chunks only.[/yellow]\n"
-                "Set OPENAI_API_KEY in .env to enable LLM answers.",
+                "[yellow]RAG_OPENAI_API_KEY not set – showing retrieved chunks only.[/yellow]\n"
+                "Set RAG_OPENAI_API_KEY in .env to enable LLM answers.",
                 title="RAG: Chunks-Only Mode",
                 border_style="yellow",
             )
@@ -101,7 +101,7 @@ def run_query(
     from langchain_openai import ChatOpenAI  # type: ignore
 
     llm = ChatOpenAI(
-        api_key=config.OPENAI_API_KEY,
+        api_key=config.RAG_OPENAI_API_KEY,
         model=config.OPENAI_MODEL,
         max_tokens=config.MAX_TOKENS,
         temperature=config.TEMPERATURE,

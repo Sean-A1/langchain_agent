@@ -40,7 +40,7 @@ Copy `.env.example` → `.env` and fill in your keys.
 LLAMAPARSE_API_KEY=lx-...          # or LLAMA_CLOUD_API_KEY (fallback)
 
 # Optional – enables LLM answers; absent → chunks-only mode
-OPENAI_API_KEY=sk-...
+RAG_OPENAI_API_KEY=sk-...
 ```
 
 Full list of overridable settings is in `.env.example`.
@@ -78,7 +78,7 @@ Output example:
 ### 3. Query
 
 ```powershell
-# Basic query (LLM answer if OPENAI_API_KEY is set)
+# Basic query (LLM answer if RAG_OPENAI_API_KEY is set)
 python main.py query "사업의 주요 요구사항은 무엇인가요?"
 
 # Override top-k and chunk limits on the fly
@@ -118,7 +118,7 @@ Or pass `--max-chunks` / `--max-chars` / `--top-k` directly to the `query` comma
 
 ## No-LLM mode
 
-If `OPENAI_API_KEY` is not set the pipeline skips the LLM entirely and prints
+If `RAG_OPENAI_API_KEY` is not set the pipeline skips the LLM entirely and prints
 the retrieved document chunks in a readable format:
 
 ```

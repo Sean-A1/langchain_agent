@@ -22,7 +22,7 @@ os.environ.setdefault("CHROMA_TELEMETRY", "False")
 LLAMAPARSE_API_KEY: str = (
     os.getenv("LLAMAPARSE_API_KEY") or os.getenv("LLAMA_CLOUD_API_KEY") or ""
 )
-OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY") or ""
+RAG_OPENAI_API_KEY: str = os.getenv("RAG_OPENAI_API_KEY") or ""
 
 # ---------------------------------------------------------------------------
 # Paths
