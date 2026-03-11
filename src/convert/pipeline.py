@@ -1,5 +1,5 @@
 """
-Conversion pipeline — Phase 3: parse + clean + metadata + md export.
+Conversion pipeline — Phase 4: parse + clean + metadata + multi-format export.
 
 Stages:
   1. Resolve profile (financial_rfp only for now)
@@ -8,6 +8,7 @@ Stages:
   4. Clean each raw markdown via the profile's normalisation rules
   5. Extract metadata via a single LLM call per document
   6. Write cleaned markdown (with YAML frontmatter) to output_dir/md/<stem>.md
+  7. Export to html/, xml/, json/ under the same output_dir
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from rich.console import Console
 
 from . import config as cfg
 from .clean import clean_markdown
+from .export import to_html, to_json, to_xml
 from .metadata import extract_metadata, metadata_to_yaml_frontmatter
 from .parse import parse_pdfs
 from .profiles import get_profile
@@ -57,8 +59,12 @@ def run_convert(
     raw_mds = parse_pdfs(pdf_paths, profile, cfg.LLAMAPARSE_API_KEY, debug=debug)
 
     # 5. Clean + write (only files that parsed successfully)
-    md_dir = output_dir / "md"
-    md_dir.mkdir(parents=True, exist_ok=True)
+    md_dir   = output_dir / "md"
+    html_dir = output_dir / "html"
+    xml_dir  = output_dir / "xml"
+    json_dir = output_dir / "json"
+    for d in (md_dir, html_dir, xml_dir, json_dir):
+        d.mkdir(parents=True, exist_ok=True)
 
     # 6. Metadata: check whether we can make LLM calls
     can_extract_metadata = bool(
@@ -90,9 +96,25 @@ def run_convert(
 
         body = f"{frontmatter}\n\n{cleaned}" if frontmatter else cleaned
 
-        out_path = md_dir / f"{pdf_path.stem}.md"
-        out_path.write_text(body, encoding="utf-8")
-        console.print(f"  [green]wrote[/green] {out_path}")
+        stem = pdf_path.stem
+
+        # 7a. Markdown
+        md_path = md_dir / f"{stem}.md"
+        md_path.write_text(body, encoding="utf-8")
+
+        # 7b. HTML
+        html_path = html_dir / f"{stem}.html"
+        html_path.write_text(to_html(body), encoding="utf-8")
+
+        # 7c. XML
+        xml_path = xml_dir / f"{stem}.xml"
+        xml_path.write_text(to_xml(body), encoding="utf-8")
+
+        # 7d. JSON
+        json_path = json_dir / f"{stem}.json"
+        json_path.write_text(to_json(body), encoding="utf-8")
+
+        console.print(f"  [green]wrote[/green] {stem} → md, html, xml, json")
         written += 1
 
     if written == 0:
@@ -101,5 +123,5 @@ def run_convert(
 
     console.print(
         f"\n[bold green]Done.[/bold green] "
-        f"{written} file(s) written to [cyan]{md_dir}[/cyan]"
+        f"{written} file(s) exported to [cyan]{output_dir}[/cyan]"
     )
